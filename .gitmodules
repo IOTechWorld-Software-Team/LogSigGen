@@ -1,0 +1,3 @@
+[submodule "JSON-java"]
+	path = JSON-java
+	url = https://github.com/IOTechWorld-Software-Team/JSON-java

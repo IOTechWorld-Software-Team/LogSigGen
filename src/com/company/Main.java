@@ -4,9 +4,11 @@ import java.awt.*;
 import java.io.File;
 import javax.swing.*;
 import java.awt.event.*;
+import java.io.FileNotFoundException;
 import  java.security.*;
 import java.nio.charset.*;
 import java.util.*;
+import org.json.*;
 
 public class Main extends Component {
 
@@ -46,7 +48,7 @@ public class Main extends Component {
         return Base64.getEncoder().encodeToString(bytesSignature);
     }
 
-    public void SignLog(){
+    public void SignLog() throws FileNotFoundException {
         File PrivateKeyFile, JsonLogFile, OutPath;
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Select Private Key of Drone");
@@ -75,7 +77,13 @@ public class Main extends Component {
                             // Sign and Generate Log
                             System.out.println("Signing Log file:" + JsonLogFile.getAbsolutePath() + " Using Key:" + PrivateKeyFile.getAbsolutePath());
 
+                            // Read the File into Json Object
+                            Scanner uns_json_reader = new Scanner(JsonLogFile);
+                            uns_json_reader.useDelimiter("\\Z");
+                            String filedata = uns_json_reader.next();
 
+                            JSONObject Unsigned = new JSONObject(filedata);
+                            System.out.println("Signing Data :" + Unsigned.getJSONObject("flightLog").toString());
 
                             JFrame f = new JFrame();
                             JOptionPane.showMessageDialog(f, "Log Signed Successfully");
@@ -109,8 +117,14 @@ public class Main extends Component {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                Main LogSignerVerifier = new Main();
-                LogSignerVerifier.SignLog();
+                try {
+                    Main LogSignerVerifier = new Main();
+                    LogSignerVerifier.SignLog();
+                }
+                catch(FileNotFoundException err){
+                        System.out.println("An error occurred.");
+                        err.printStackTrace();
+                }
             }
         });
     }
