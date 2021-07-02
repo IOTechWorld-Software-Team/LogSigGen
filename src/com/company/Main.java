@@ -113,6 +113,24 @@ public class Main extends Component {
                             String signatureout = createSignature(Unsigned.getJSONObject("flightLog").toString(), privateKey);
                             System.out.println("Signature Out-"+ signatureout);
 
+                            Unsigned.put("signature", signatureout);
+
+                            try {
+                                File myObj = new File(JsonLogFile.getAbsolutePath().replace(".json", "-signed.json")); // Sorry, No JSON, Json and pee pee
+                                if (myObj.createNewFile()) {
+                                    System.out.println("File created: " + myObj.getName());
+                                } else {
+                                    System.out.println("File already exists.");
+                                }
+                                FileWriter outwr = new FileWriter(myObj);
+                                outwr.write(Unsigned.toString());
+                                outwr.close();
+                                System.out.println("File saved");
+                            } catch (IOException e) {
+                                System.out.println("An error occurred.");
+                                e.printStackTrace();
+                            }
+
                             JFrame f = new JFrame();
                             JOptionPane.showMessageDialog(f, "Log Signed Successfully");
                             return; // till now
@@ -142,7 +160,6 @@ public class Main extends Component {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         SignLogbutton.addActionListener(new ActionListener() {
-
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
