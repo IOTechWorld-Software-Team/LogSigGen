@@ -4,14 +4,12 @@ import java.awt.*;
 import java.io.*;
 import javax.swing.*;
 import java.awt.event.*;
-import java.io.FileNotFoundException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import  java.security.*;
 import java.nio.charset.*;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.*;
+
+import org.bouncycastle.openssl.*;
+import org.bouncycastle.openssl.jcajce.*;
 import org.json.*;
 
 public class Main extends Component {
@@ -52,20 +50,24 @@ public class Main extends Component {
         return Base64.getEncoder().encodeToString(bytesSignature);
     }
 
-    public RSAPrivateKey getPrivateKey(String filename) throws Exception {
-        File file = new File(filename);
-        String key = new String(Files.readAllBytes(file.toPath()), Charset.defaultCharset());
+    public PrivateKey getPrivateKey(String filename) throws Exception {
+        String password = "";
+        PEMParser pemParser = new PEMParser(new FileReader(filename));
+        Object object = pemParser.readObject();
+        PEMDecryptorProvider decProv = new JcePEMDecryptorProviderBuilder().build(password.toCharArray());
+        JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 
-        String privateKeyPEM = key
-                .replace("-----BEGIN PRIVATE KEY-----", "")
-                .replaceAll(System.lineSeparator(), "")
-                .replace("-----END PRIVATE KEY-----", "");
-
-        byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
-
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
-        return (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
+        KeyPair key;
+        if (object instanceof PEMEncryptedKeyPair) {
+            System.out.println("Encrypted key - we will use provided password");
+            key = converter.getKeyPair(((PEMEncryptedKeyPair) object)
+                    .decryptKeyPair(decProv));
+        } else {
+            System.out.println("Unencrypted key - no password needed "+object.getClass().getName());
+            key = converter.getKeyPair((PEMKeyPair) object);
+        }
+        pemParser.close();
+        return key.getPrivate();
     }
 
     public void SignLog() throws Exception {
@@ -106,8 +108,9 @@ public class Main extends Component {
                             System.out.println("Signing Data :" + Unsigned.getJSONObject("flightLog").toString());
 
                             // Here Comes the Private Key
-                            PrivateKey _signerboi = getPrivateKey(PrivateKeyFile.getAbsolutePath());
-                            String signatureout = createSignature(Unsigned.getJSONObject("flightLog").toString(), _signerboi);
+                            PrivateKey privateKey = getPrivateKey(PrivateKeyFile.getAbsolutePath());
+
+                            String signatureout = createSignature(Unsigned.getJSONObject("flightLog").toString(), privateKey);
                             System.out.println("Signature Out-"+ signatureout);
 
                             JFrame f = new JFrame();
