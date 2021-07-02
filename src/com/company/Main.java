@@ -15,8 +15,12 @@ import javax.swing.*;
 import java.awt.event.*;
 import  java.security.*;
 import java.nio.charset.*;
+
 import java.util.*;
 
+
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.openssl.*;
 import org.bouncycastle.openssl.jcajce.*;
 import org.json.*;
@@ -59,6 +63,14 @@ public class Main extends Component {
         return Base64.getEncoder().encodeToString(bytesSignature);
     }
 
+    boolean VerifySignature(final String minifiedJson, final PublicKey publickey, final byte[] in_signature)
+            throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        final Signature inst = Signature.getInstance("SHA256withRSA");
+        inst.initVerify(publickey);
+        inst.update(minifiedJson.getBytes(StandardCharsets.UTF_8));
+        return inst.verify(in_signature);
+    }
+
     public PrivateKey getPrivateKey(String filename) throws Exception {
         String password = "";
         PEMParser pemParser = new PEMParser(new FileReader(filename));
@@ -79,8 +91,18 @@ public class Main extends Component {
         return key.getPrivate();
     }
 
+    public PublicKey getPublicKey(String filename) throws Exception {
+        PEMParser pemParser = new PEMParser(new FileReader(filename));
+        X509CertificateHolder spki = (X509CertificateHolder) pemParser.readObject();
+        pemParser.close();
+
+        JcaX509CertificateConverter converter = new JcaX509CertificateConverter().setProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+        return converter.getCertificate(spki).getPublicKey();
+    }
+
     public void SignLog() throws Exception {
-        File PrivateKeyFile, JsonLogFile, OutPath;
+        File PrivateKeyFile, JsonLogFile;
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Select Private Key of Drone");
         fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
@@ -155,14 +177,78 @@ public class Main extends Component {
             }
         }
     }
+
+    public void VerifyLog() throws Exception {
+        File PublicKeyFile, JsonLogFile;
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Public Key of Drone");
+        fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+        while(true) {
+            int result = fileChooser.showOpenDialog(this);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                PublicKeyFile = fileChooser.getSelectedFile();
+                if(!(PublicKeyFile.getAbsolutePath().contains(".pem") || PublicKeyFile.getAbsolutePath().contains(".cer"))){
+                    JFrame f = new JFrame();
+                    JOptionPane.showMessageDialog(f,"Invalid Public Key Format");
+                    continue;
+                }
+                System.out.println("Selected Key file: " + PublicKeyFile.getAbsolutePath());
+                while (true) {
+                    JFileChooser logChooser = new JFileChooser();
+                    logChooser.setDialogTitle("Select Log to be Verified");
+                    result = logChooser.showOpenDialog(this);
+                    if (result == JFileChooser.APPROVE_OPTION) {
+                        JsonLogFile = logChooser.getSelectedFile();
+                        if (!(JsonLogFile.getAbsolutePath().contains("json"))) {
+                            JFrame f = new JFrame();
+                            JOptionPane.showMessageDialog(f, "Invalid Log Format");
+                        }
+                        else{
+                            // Sign and Generate Log
+                            System.out.println("Verifying Log file:" + JsonLogFile.getAbsolutePath() + " Using Key:" + PublicKeyFile.getAbsolutePath());
+
+                            // Read the File into Json Object
+                            Scanner uns_json_reader = new Scanner(JsonLogFile);
+                            uns_json_reader.useDelimiter("\\Z");
+                            String filedata = uns_json_reader.next();
+
+                            JSONObject Unsigned = new JSONObject(filedata);
+                            System.out.println("Verifying Data :" + Unsigned.getJSONObject("flightLog").toString());
+
+                            // Here Comes the Private Key
+                            PublicKey pubkey = getPublicKey(PublicKeyFile.getAbsolutePath());
+
+                            JFrame f = new JFrame();
+                            if(VerifySignature(Unsigned.getJSONObject("flightLog").toString(), pubkey, Base64.getDecoder().decode(Unsigned.getString("signature")))){
+                                JOptionPane.showMessageDialog(f, "Log Signature Verified");
+                            }
+                            else{
+                                JOptionPane.showMessageDialog(f, "Invalid Log Signature Found");
+                            }
+                            return; // till now
+                        }
+                    }
+                    else{
+                        break;
+                    }
+                }
+            }
+            else{
+                break;
+            }
+        }
+    }
+
     public static void main(String[] args) {
         JFrame frame = new JFrame("Log Signer Verifier For NPNT Testing");
-        frame.setSize(600, 200);
+        frame.setSize(500, 80);
 
         JButton SignLogbutton = new JButton("Sign a Log");
+        JButton VerifyLogbutton = new JButton("Verify a Log");
         JPanel panel = new JPanel(); // the panel is not visible in output
 
         panel.add(SignLogbutton);
+        panel.add(VerifyLogbutton);
         frame.getContentPane().add(panel); // Adds Button to content pane of frame
 
         frame.setVisible(true);
@@ -178,6 +264,19 @@ public class Main extends Component {
                 catch(Exception err){
                         System.out.println("An error occurred.");
                         err.printStackTrace();
+                }
+            }
+        });
+        VerifyLogbutton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    Main LogSignerVerifier = new Main();
+                    LogSignerVerifier.VerifyLog();
+                }
+                catch(Exception err){
+                    System.out.println("An error occurred.");
+                    err.printStackTrace();
                 }
             }
         });
