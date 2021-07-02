@@ -1,3 +1,12 @@
+//  ----------*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-**--**-*-*-*-*-*-*-*-*-*-*-*-------------------
+//      Author: Yatin Khurana
+//
+//      IotechWorld Avigation Pvt Ltd.
+//
+//      Open Source Tool to generate and Verify Signature for
+//      JSON Logs w.r.t new format accepted by DigitalSky and QCI Tool
+//
+//  ----------*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-**--**-*-*-*-*-*-*-*-*-*-*-*-------------------
 package com.company;
 import javax.swing.JFileChooser;
 import java.awt.*;
